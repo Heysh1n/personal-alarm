@@ -1,46 +1,58 @@
-# alarm-tui
+<div align="center">
 
-Модульный TUI-будильник для Linux на чистом Python 3 (стандартная библиотека + `curses`) без внешних Python-зависимостей.
+# ⏰ alarm-tui
 
-Поддерживает расчет подъема по циклам сна (с настраиваемым барабаном времени засыпания) и по точному времени, интерактивную проверку отбоя («Пошел ли я спать?» со сдвигом цели на `+15` минут), блокировку засыпания системы через `systemd-inhibit`, пресеты и ручную настройку частоты синусоидального сигнала, быстрый 2-секундный тест звука, ступенчатый разгон громкости и гарантированный возврат громкости (по умолчанию `50%`) при любом завершении.
+[![Python Version](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Platform](https://img.shields.io/badge/Platform-Linux-FCC624?logo=linux&logoColor=black)](https://kernel.org/)
+[![Version](https://img.shields.io/badge/Version-1.0.0-blue?logo=semver&logoColor=white)](pyproject.toml)
+[![Dependencies](https://img.shields.io/badge/Dependencies-stdlib%20only-brightgreen)](pyproject.toml)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Возможности
+*Wake up between sleep cycles, never sleep through an alarm, and always return your system volume to 50%.*
 
-- **Два режима работы**:
-  - **CYCLES (Циклы сна)** — расчет времени подъема по формуле `cycle_minutes × cycles + fall_asleep_minutes` (по умолчанию `90 мин × N + 15 мин`) с отдельным барабаном выбора времени на засыпание (`0..45` мин, шаг `5` мин) и живым пересчетом времени подъема.
-  - **EXACT TIME (Точное время)** — выбор точного `HH:MM` с автоматическим переносом на завтра, если выбранное время сегодня уже прошло.
-- **Проверка отбоя («Пошел ли я спать?»)**:
-  - В режиме циклов сна через `bedtime_check_delay_minutes` (по умолчанию 15 мин) появляется запрос подтверждения.
-  - При ответе **«Нет» (`N`)** цель подъема сдвигается на `+15` минут и назначается повторная проверка.
-  - Если ответа нет в течение `bedtime_check_timeout_sec` (по умолчанию 60 сек), будильник автоматически считает, что вы уснули, и не сдвигает звонок.
-- **Блокировка сна системы (`systemd-inhibit`)**:
-  - Пока будильник активен (`WAITING`, `BEDTIME_CHECK`, `RINGING`), удерживается ингибитор `systemd-inhibit --what=sleep:idle --who="alarm-tui" --why="Alarm active" --mode=block sleep infinity`, чтобы компьютер не уснул до звонка.
-  - При возврате в `SETUP`, отключении будильника, выходе (`Q`) или сигналах `SIGINT`/`SIGTERM` процесс ингибитора корректно завершается.
-  - Если `systemd-inhibit` отсутствует в системе, приложение продолжает работу штатно и выводит предупреждение в статусе.
-- **Центрированный TUI на `curses`**:
-  - Барабаны выбора значений (предыдущее / текущее / следующее значение).
-  - Пресеты частоты (`300`, `440`, `600`, `850 Гц` по умолчанию, `1200`, `1800 Гц`) и плавная ручная настройка в Гц.
-  - Безопасная отрисовка при любых размерах терминала и корректное восстановление курсора/экрана.
-  - Поддержка клавиатуры (`стрелки` / `hjkl`) и мыши (клики и колесо `BUTTON4` / `BUTTON5`).
-- **Аудио и безопасность**:
-  - Генерация синусоиды через `speaker-test -t sine -f <freq> -c 2` (если `speaker-test` недоступен, на экране звонка выводится явное предупреждение).
-  - Управление громкостью через `wpctl` (`@DEFAULT_AUDIO_SINK@`): быстрый тест на 2 секунды (`T`) и сирена с разгоном от `start_vol` до `max_vol` с шагом `step_vol` каждые `step_sec` секунд.
-  - Гарантированная остановка дочернего процесса `speaker-test` и сброс громкости на `restore_vol` (`50%`) при выходе, `Q`, `Ctrl+C` (`SIGINT`), `SIGTERM` и отключении звонка.
-- **Локализация (`en`, `ru`, `tr`)**:
-  - Приоритет определения языка: флаг `--lang` → `language` в `config.toml` → `LC_ALL` / `LANG` → fallback `ru`.
-  - Переключение языка прямо в интерфейсе по `Ctrl+L` (`F2`) или кликом по бейджу `[^L] RU` без конфликта с навигацией `hjkl`.
+</div>
 
-## Системные зависимости
+---
 
-Внешние Python-пакеты для запуска не требуются — используется только стандартная библиотека Python 3 (`curses`, `tomllib` на Python 3.11+ и встроенный fallback-парсер TOML для Python 3.10).
+## 📖 What is alarm-tui?
 
-Необходимы системные утилиты Linux:
+**alarm-tui** is a modular Linux terminal alarm clock written in pure **Python 3** (`curses` + standard library, zero third-party runtime dependencies).
 
-- **`alsa-utils`** — предоставляет `speaker-test` для генерации звукового сигнала.
-- **`wireplumber`** — предоставляет `wpctl` для управления громкостью и размьюта `@DEFAULT_AUDIO_SINK@`.
-- **`systemd`** *(опционально, обычно предустановлен)* — предоставляет `systemd-inhibit` для блокировки сна на время ожидания будильника.
+It combines sleep-cycle math, an interactive centered TUI with drum pickers, safe PipeWire/WirePlumber audio ramping, and `systemd-inhibit` sleep blocking into a lightweight terminal tool:
 
-Установка зависимостей:
+* Schedule wake-up times by **Sleep Cycles** (`cycles × cycle_minutes + fall_asleep_minutes`) or **Exact Time** (`HH:MM` with automatic rollover to tomorrow).
+* Catch late bedtimes with an interactive **Bedtime Check** that shifts your target by `+15 min` when you are still awake—and auto-confirms if you already fell asleep.
+* Keep your Linux machine awake until the alarm fires with automatic **`systemd-inhibit`** management.
+* Ramp a sine-wave siren smoothly via **`speaker-test`** and **`wpctl`**, with guaranteed process teardown and **`50%` volume restoration** on every exit path.
+
+---
+
+## ✨ Key Features
+
+| Feature | Description |
+| --- | --- |
+| **Dual Scheduling Modes** | Switch between **CYCLES** (default `90m` cycles + live `0–45m` fall-asleep drum) and **EXACT TIME** (`HH:MM` with automatic next-day rollover). |
+| **Interactive Drum Pickers** | Centered `curses` card displaying `prev / current / next` values with full keyboard (`arrows` / `hjkl`) and mouse (click + scroll wheel) control. |
+| **Bedtime Check (`+15m`)** | Prompts *"Did you go to sleep?"* after `15m`; answering **No** shifts the wake target by `+15m` and reschedules the check. Auto-confirms **Yes** after `60s` so sleeping users never miss their alarm. |
+| **Sleep Inhibition** | Automatically holds `systemd-inhibit --what=sleep:idle` while armed or ringing (`WAITING`, `BEDTIME_CHECK`, `RINGING`) and releases it cleanly on cancel, dismiss, or exit. |
+| **Tone Presets & Manual Hz** | Six built-in sine-wave presets (default `850 Hz`) plus fine-grained manual frequency tuning (`150–4000 Hz`, step `25 Hz`) and a 2-second sound test (`T`). |
+| **Gradual Siren Ramp & Safety** | Unmutes `@DEFAULT_AUDIO_SINK@`, ramps volume from `15%` to `100%` (`+5%` every `3s`), and unconditionally kills `speaker-test` and restores volume to `50%` on `Q`, `Ctrl+C` (`SIGINT`), `SIGTERM`, or alarm dismissal. |
+| **Trilingual UI (`en` / `ru` / `tr`)** | Resolves language via `--lang` → `config.toml` → `LC_ALL` / `LC_MESSAGES` / `LANG` → `ru`, and switches live via `Ctrl+L`, `F2`, or clicking the `[^L]` badge. |
+| **Terminal-Safe Rendering** | Adapts cleanly to terminal resizing, guards against tiny terminal dimensions without `curses` crashes, and restores cursor/mouse state on exit. |
+
+---
+
+## 📦 Installation & Requirements
+
+### System Requirements
+
+* **OS:** Linux
+* **Python:** `3.10+` (uses stdlib `tomllib` on `3.11+` and a built-in TOML fallback parser on `3.10`)
+* **`alsa-utils`:** provides `speaker-test` for sine-wave audio output
+* **`wireplumber`:** provides `wpctl` for volume control and unmuting `@DEFAULT_AUDIO_SINK@`
+* **`systemd`** *(optional, preinstalled on most distros)*: provides `systemd-inhibit` for sleep/idle locking
+
+Install system utilities:
 
 ```bash
 # Arch Linux / Manjaro
@@ -53,112 +65,121 @@ sudo apt install python3 alsa-utils wireplumber
 sudo dnf install python3 alsa-utils wireplumber
 ```
 
-## Установка и запуск
-
-### Локальный запуск без установки
+### Install as CLI (`alarm-tui`)
 
 ```bash
-git clone <url-репозитория> personal-alarm
-cd personal-alarm
-
-# Запуск напрямую
-python3 main.py
-
-# Явный выбор языка (en / ru / tr)
-python3 main.py --lang en
-python3 main.py --lang ru
-python3 main.py --lang tr
-
-# Запуск со своим конфигом
-python3 main.py --config /path/to/config.toml
-```
-
-### Установка как CLI-команды (`alarm-tui`)
-
-```bash
-# Через uv (глобальная CLI-утилита в изолированном окружении)
+# Install globally in an isolated environment with uv
 uv tool install .
 alarm-tui
 
-# Или в режиме разработки через pip
+# Or install in editable mode with pip
 pip install -e .
-alarm-tui --lang ru
+alarm-tui --lang en
 ```
 
-## Запуск тестов
-
-Проект настроен под `pytest` в [`pyproject.toml`](pyproject.toml):
+### Run Directly Without Installing
 
 ```bash
-# Установка dev-зависимостей (pytest)
-pip install -e ".[dev]"
-
-# Запуск всех юнит-тестов
-pytest
+python3 main.py
+python3 main.py --lang en
+python3 main.py --config /path/to/config.toml
 ```
 
-## Управление
+---
 
-### Клавиатура
+## 🚀 CLI Flags
 
-| Клавиша | Действие |
+| Flag | Values | Description |
+| --- | --- | --- |
+| `--lang` | `en`, `ru`, `tr` | Override interface language (takes priority over `config.toml` and environment variables). |
+| `--config` | `<path>` | Load configuration from a specific TOML file (exits with status `2` if missing or invalid). |
+| `--version` | — | Print `alarm-tui 1.0.0` and exit. |
+
+---
+
+## 🎛️ Controls & Tone Presets
+
+### Keyboard Shortcuts
+
+| Key | Action |
 | --- | --- |
-| `←` / `→` или `h` / `l` | Переключение активного барабана (в `CYCLES`: Циклы / Засыпание / Пресет / Частота) |
-| `↑` / `↓` или `k` / `j` | Изменение значения выбранного барабана (засыпание: шаг `5` мин, `0..45`) |
-| `PgUp` / `PgDn` | Ускоренный шаг (засыпание `±15` мин, часы, минуты, частота Гц) |
-| `+` / `-` | Увеличить / уменьшить значение барабана |
-| `Tab` или `m` | Переключение режима (`CYCLES` ↔ `EXACT TIME`) |
-| `T` | Тест звука на 2 секунды (повторное нажатие останавливает) |
-| `Enter` | Запустить будильник |
-| `B` | Открыть проверку отбоя вручную (на экране ожидания) |
-| `Y` / `N` | Ответ в проверке отбоя: «Да, сплю» / «Нет (+15 мин)» |
-| `Enter` / `Пробел` | Выключить звонящий будильник (громкость → `50%`, снятие `systemd-inhibit`) |
-| `Z` | Отложить звонок (snooze, по умолчанию `+5` мин) |
-| `Esc` | Вернуться на экран настройки |
-| `Ctrl+L` или `F2` | Переключить язык интерфейса (`EN` / `RU` / `TR`) |
-| `Q` или `Ctrl+C` | Выход с остановкой звука, снятием `systemd-inhibit` и сбросом громкости на `50%` |
+| `←` / `→` or `h` / `l` | Move focus between drum columns (`Cycles`, `Fall Asleep`, `Preset`, `Freq` or `Hour`, `Min`, `Preset`, `Freq`) |
+| `↑` / `↓` or `k` / `j` | Step the focused drum (`Fall Asleep`: `5m` step across `0–45m`) |
+| `PgUp` / `PgDn` | Coarse step (`Fall Asleep` `±15m`, `Hour` `±3`, `Min` `±5`, `Freq` `±100 Hz`) |
+| `+` / `-` | Increment / decrement the focused drum |
+| `Tab` or `m` | Toggle mode (`CYCLES` ↔ `EXACT TIME`) |
+| `T` | Start or stop the 2-second sound test at the selected frequency |
+| `Enter` | Arm the alarm and enter countdown (`WAITING`) |
+| `B` | Open the Bedtime Check prompt manually while waiting |
+| `Y` / `N` | Answer Bedtime Check (`Yes, asleep` / `No, shift +15m`) |
+| `Enter` / `Space` | Dismiss a ringing alarm (stops siren, restores volume to `50%`, releases `systemd-inhibit`) |
+| `Z` | Snooze a ringing alarm (`+5m` by default) |
+| `Esc` | Return to the setup screen |
+| `Ctrl+L` or `F2` | Cycle UI language (`EN` → `RU` → `TR`) without conflicting with `hjkl` |
+| `Q` or `Ctrl+C` | Quit safely (stops `speaker-test`, releases `systemd-inhibit`, restores volume to `50%`) |
 
-### Мышь
+### Mouse Controls
 
-- **Клик по вкладкам** `CYCLES` / `EXACT TIME` — переключение режима.
-- **Клик по барабану** — фокус на колонке; клик по верхней/нижней строке или стрелкам `▲`/`▼` — шаг назад/вперед.
-- **Колесо мыши (`BUTTON4` / `BUTTON5`)** — прокрутка значения барабана под курсором (или активного барабана).
-- **Клик по кнопкам** (`Test 2s`, `Start`, `Quit`, `Yes`/`No`, `Stop Alarm`, `Snooze`, `[^L]`) — выполнение соответствующего действия.
+* **Mode tabs:** Click `CYCLES` or `EXACT TIME` to switch modes.
+* **Drum pickers:** Click a drum to focus it; click the upper/lower rows (`▲` / `▼`) or scroll the mouse wheel (`BUTTON4` / `BUTTON5`) to change values.
+* **Action buttons & badge:** Click `Test`, `Start`, `Quit`, `Awake?`, `Yes`/`No`, `Stop Alarm`, `Snooze`, or the top-right `[^L]` language badge.
 
-## Конфигурация
+### Built-in Frequency Presets
 
-Поиск конфига выполняется автоматически в следующем порядке:
+| Preset | Frequency | Character |
+| --- | --- | --- |
+| **Deep** | `300 Hz` | Low, warm sine tone |
+| **Soft** | `440 Hz` | Concert A4 tone |
+| **Medium** | `600 Hz` | Balanced mid-range tone |
+| **Classic** *(default)* | `850 Hz` | Clear classic alarm pitch |
+| **Bright** | `1200 Hz` | Sharp, attention-grabbing tone |
+| **High** | `1800 Hz` | High-pitched piercing tone |
+| **Manual** | `150–4000 Hz` | Custom frequency tuned in `25 Hz` steps |
 
-1. Файл, переданный через `--config <путь>`.
-2. `~/.config/alarm-tui/config.toml` (с учетом `$XDG_CONFIG_HOME`).
-3. Локальный `./config.toml` в текущей директории.
-4. Встроенные значения по умолчанию.
+---
 
-Создайте пользовательский конфиг на основе [`config.example.toml`](config.example.toml):
+## ⚙️ Configuration
+
+Configuration files are discovered automatically in the following order:
+
+1. Path passed via `--config <path>`
+2. `~/.config/alarm-tui/config.toml` (respecting `$XDG_CONFIG_HOME`)
+3. Local `./config.toml` in the current working directory
+4. Built-in safe defaults
+
+Create your user configuration from [`config.example.toml`](config.example.toml):
 
 ```bash
 mkdir -p ~/.config/alarm-tui
 cp config.example.toml ~/.config/alarm-tui/config.toml
 ```
 
-Пример основных параметров:
-
 ```toml
 [general]
-language = "auto"        # "en", "ru", "tr" или "auto"
-default_mode = "cycles"  # "cycles" или "exact"
+language = "auto"        # "en", "ru", "tr", or "auto" (LC_ALL / LANG -> fallback "ru")
+default_mode = "cycles"  # "cycles" or "exact"
 
 [sleep]
 cycle_minutes = 90
 default_cycles = 5
+min_cycles = 1
+max_cycles = 10
 fall_asleep_minutes = 15
 bedtime_check_enabled = true
 bedtime_check_delay_minutes = 15
 bedtime_shift_minutes = 15
 bedtime_check_timeout_sec = 60
+default_exact_hour = 7
+default_exact_minute = 30
+snooze_minutes = 5
 
 [audio]
 frequency_hz = 850
+min_frequency_hz = 150
+max_frequency_hz = 4000
+frequency_step_hz = 25
+test_sound_duration_sec = 2.0
+test_sound_volume = 50
 start_vol = 15
 max_vol = 100
 step_vol = 5
@@ -167,26 +188,52 @@ restore_vol = 50
 audio_sink = "@DEFAULT_AUDIO_SINK@"
 ```
 
-## Структура проекта
+* Invalid types fall back to defaults with a startup warning; out-of-range numeric values are safely clamped.
+* If `speaker-test` is unavailable when the alarm fires, the ringing screen displays an explicit no-sound warning instead of failing silently.
+* If `systemd-inhibit` is absent, the alarm continues operating normally and notifies you in the status line.
+
+---
+
+## 🧪 Testing
+
+Install development dependencies (`pytest>=7.0`) and run the test suite:
+
+```bash
+pip install -e ".[dev]"
+pytest -v
+```
+
+Test coverage includes sleep-cycle and exact-time rollover math, bedtime checks and snooze plans, TOML parsing/validation/clamping, language resolution and translation key parity (`en`/`ru`/`tr`), and `systemd-inhibit` lifecycle handling.
+
+---
+
+## 🏗️ Architecture
 
 ```text
 personal-alarm/
-├── pyproject.toml           # Метаданные пакета, точка входа alarm-tui и настройки pytest
-├── main.py                  # Обертка запуска для `python3 main.py`
-├── config.example.toml      # Подробный пример конфигурации
-├── README.md                # Документация проекта
+├── pyproject.toml           # Package metadata, alarm-tui CLI entrypoint, and pytest settings
+├── main.py                  # Direct execution wrapper (`python3 main.py`)
+├── config.example.toml      # Documented example TOML configuration
+├── LICENSE                  # MIT License
+├── README.md                # Project documentation
 ├── alarm_tui/
-│   ├── __init__.py          # Метаданные пакета
-│   ├── cli.py               # CLI-точка входа (--lang, --config), обработка SIGINT/SIGTERM
-│   ├── i18n.py              # Локализация (en, ru, tr) и автоопределение языка
-│   ├── config.py            # Загрузка и валидация TOML-конфигурации
-│   ├── audio.py             # speaker-test, wpctl, тест звука, сирена с разгоном, сброс громкости
-│   ├── inhibitor.py         # Блокировка сна системы через systemd-inhibit
-│   ├── sleep.py             # Расчет циклов сна, точного времени и логика проверки отбоя (+15м)
-│   └── ui.py                # Центрированный curses TUI, барабаны выбора, мышь и экраны состояний
+│   ├── __init__.py          # Package version and app metadata
+│   ├── cli.py               # CLI parser (--lang, --config), signal/atexit guards, TUI bootstrap
+│   ├── i18n.py              # Localization dictionaries (en, ru, tr) and locale resolution
+│   ├── config.py            # TOML loader (tomllib + fallback parser) and config validation
+│   ├── audio.py             # speaker-test playback, wpctl volume ramp, and 50% reset safety
+│   ├── inhibitor.py         # systemd-inhibit sleep/idle lock lifecycle manager
+│   ├── sleep.py             # Sleep cycles, exact-time rollover, bedtime check (+15m), snooze
+│   └── ui.py                # Centered curses TUI, drum pickers, mouse handling, state screens
 └── tests/
-    ├── test_sleep.py        # Тесты расчетов циклов, точного времени, отбоя и snooze
-    ├── test_config.py       # Тесты дефолтов, парсинга TOML, валидации и clamp
-    ├── test_i18n.py         # Тесты приоритета языков и полноты словарей en/ru/tr
-    └── test_inhibitor.py    # Тесты systemd-inhibit и graceful fallback
+    ├── test_sleep.py        # Unit tests for sleep calculations, bedtime check, and snooze
+    ├── test_config.py       # Unit tests for defaults, TOML parsing, validation, and clamping
+    ├── test_i18n.py         # Unit tests for language priority and en/ru/tr key parity
+    └── test_inhibitor.py    # Unit tests for systemd-inhibit acquire/release and fallback
 ```
+
+---
+
+## 📜 License
+
+[MIT](LICENSE) — © 2026 [Heysh1n](https://github.com/Heysh1n)
