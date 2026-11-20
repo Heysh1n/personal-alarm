@@ -1,0 +1,65 @@
+# Example configuration for alarm-tui
+# Copy to ~/.config/alarm-tui/config.toml (or ./config.toml for local override).
+# All fields are optional; missing or invalid values fall back to safe defaults.
+
+[general]
+# UI language: "en", "ru", "tr", or "auto" (detect from LC_ALL / LANG, fallback: "ru").
+# Can always be overridden on launch with: python3 main.py --lang en
+language = "auto"
+
+# Initial mode on startup: "cycles" or "exact".
+default_mode = "cycles"
+
+[sleep]
+# Length of one full sleep cycle in minutes (default: 90).
+cycle_minutes = 90
+
+# Default number of sleep cycles selected in CYCLES mode (default: 5).
+default_cycles = 5
+min_cycles = 1
+max_cycles = 10
+
+# Estimated minutes needed to fall asleep (added on top of sleep cycles).
+fall_asleep_minutes = 15
+
+# Bedtime check ("Did you go to sleep?"):
+# Asks after bedtime_check_delay_minutes; if you answer "No", shifts target by +15 min.
+# If there is no input within bedtime_check_timeout_sec, assumes you fell asleep ("Yes").
+bedtime_check_enabled = true
+bedtime_check_delay_minutes = 15
+bedtime_shift_minutes = 15
+bedtime_check_timeout_sec = 60
+
+# Default HH:MM shown in EXACT TIME mode.
+default_exact_hour = 7
+default_exact_minute = 30
+
+# Snooze duration when pressing Z on the ringing screen.
+snooze_minutes = 5
+
+[audio]
+# Default sine-wave frequency in Hz (classic alarm tone: 850 Hz).
+frequency_hz = 850
+min_frequency_hz = 150
+max_frequency_hz = 4000
+frequency_step_hz = 25
+
+# Short sound test triggered by pressing T (seconds and volume %).
+test_sound_duration_sec = 2.0
+test_sound_volume = 50
+
+# Gradual siren volume ramp via wpctl:
+# Starts at start_vol% and increases by step_vol% every step_sec seconds up to max_vol%.
+start_vol = 15
+max_vol = 100
+step_vol = 5
+step_sec = 3.0
+
+# Guaranteed volume (%) restored on exit, Q, Ctrl+C (SIGINT), SIGTERM, or alarm stop.
+restore_vol = 50
+
+# WirePlumber sink target passed to wpctl.
+audio_sink = "@DEFAULT_AUDIO_SINK@"
+
+# Optional custom frequency presets (uncomment to replace built-in presets):
+# frequency_presets = [300, 440, 600, 850, 1200, 1800]
