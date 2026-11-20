@@ -237,3 +237,9 @@ personal-alarm/
 ## 📜 License
 
 [MIT](LICENSE) — © 2026 [Heysh1n](https://github.com/Heysh1n)
+
+ <p align="center">
+
+Made with ❤️ by Heysh1n
+
+</p> 
